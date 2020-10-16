@@ -1,0 +1,42 @@
+\documentclass{article}
+
+\usepackage[hmargin=20mm, vmargin=25mm]{geometry}
+\usepackage{parskip}
+\usepackage{amsmath}
+
+\begin{document}
+\title{Data, Estimation and Inference Report}
+\author{Ben Ellis}
+\date{\today}
+\maketitle
+
+% Describe the data that we are trying to fit and its patterns
+This report considers data from a sensor measuring tide height.
+The sensor often fails to transmit readings due to severe weather, and 
+hence we here try to interpolate from the data available.
+
+The readings from the sensor and the true tide heights over the period 
+considered are shown in Figure [?]. 
+As you can see this data exhibits a few interesting patterns:
+\begin{itemize}
+    \item As we would expect, the tide height is periodic with a period of roughly 12 hours.
+    \item There are a few notable periods where data are entirely missing.
+    \item Although data are missing, observed readings show relatively little noise.
+\end{itemize}
+
+The regular structure of the data suggests that we could use Gaussian Processes to interpolate.
+
+\section*{Gaussian Processes}
+
+A gaussian
+% Why use gaussian process here? 
+% Looks like a fairly regular function so limited expressivity not a problem
+% Describe gaussian processes 
+% Describe the marginal likelihood.
+% Talk about 0 mean assumption and normalisation of data
+% Talk about kernel choice. 
+
+
+
+\end{document}
+
