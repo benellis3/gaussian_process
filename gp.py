@@ -72,4 +72,5 @@ class GaussianProcess:
             - np.sum(np.log(np.diag(cholesky)))
             - (self.data_x.shape[0] / 2) * np.log(2 * np.pi)
         )
-        return self.draw()
+        self.predictions = self.draw()
+        return self.predictions

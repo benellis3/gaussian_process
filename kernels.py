@@ -10,7 +10,7 @@ def rbf(x, x_dash, params):
     # add a new axis to x and take advantage of broadcasting
     length = params["rbf.length"]
     diff = -cdist(x[:, np.newaxis], x_dash[:, np.newaxis], "sqeuclidean") / length ** 2
-    return np.exp(diff)
+    return params["rbf.variance"] * np.exp(diff)
 
 
 def periodic(x, x_dash, params):
@@ -19,4 +19,4 @@ def periodic(x, x_dash, params):
     length = params["periodic.length"]
     diff = np.pi * cdist(x[:, np.newaxis], x_dash[:, np.newaxis], "euclidean") / p
     sin_diff = -(2 / length ** 2) * np.sin(diff) ** 2
-    return np.exp(sin_diff)
+    return params["periodic.variance"] * np.exp(sin_diff)
