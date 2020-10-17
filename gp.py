@@ -62,7 +62,8 @@ class GaussianProcess:
 
         data_mat = k_dd + (self.sigma ** 2) * np.eye(k_dd.shape[0])
         cholesky = np.linalg.cholesky(data_mat)
-        inv = np.linalg.inv(cholesky)
+        # using the pseudoinverse is slower, but is better for conditioning
+        inv = np.linalg.pinv(cholesky)
 
         inv = np.dot(inv.T, inv)
         self.mean = np.dot(np.dot(k_pd, inv), self.data_y)

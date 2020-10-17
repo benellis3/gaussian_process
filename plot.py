@@ -1,7 +1,8 @@
-"""
-Some useful plotting functions for creating
+""" Some useful plotting functions for creating
 the final plots
 """
+from itertools import chain
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,22 +17,95 @@ def _join_predictions(data, predictions):
     return pd.concat([data, predictions]).sort_index()
 
 
-def plot_predictions(ax, predictions, data, column, num_draws=2):
-    for prediction in predictions:
-        joined_preds = _join_predictions(data, prediction)
-        ax.plot(joined_preds.index, joined_preds[column], label="Function Draw")
+class GPPlot:
+    def __init__(
+        self,
+        data,
+        true_data,
+        mean,
+        var,
+        predictions,
+        column,
+        join=True,
+    ):
+        self.data = data
+        self.true_data = true_data
+        self.mean = mean
+        self.var = var
+        self.predictions = predictions
+        self.column = column
+        self.join = join
 
+    def init_plot(self):
+        self.fig, self.ax = plt.subplots()
 
-def plot_uncertainties(ax, mu, sigma, multiple, data, column):
-    bars_low = pd.concat([data, mu - multiple * sigma]).sort_index()
-    bars_high = pd.concat([data, mu + multiple * sigma]).sort_index()
-    ax.fill_between(
-        bars_low.index,
-        bars_low[column],
-        bars_high[column],
-        label=f"{multiple} $\sigma$",
-        alpha=0.5,
-    )
+    def set_gp(self, mean, var, predictions):
+        self.mean = mean
+        self.var = var
+        self.predictions = predictions
+
+    def plot_predictions(self, num_draws=1):
+        for prediction in self.predictions:
+
+            preds = (
+                _join_predictions(self.data, prediction) if self.join else prediction
+            )
+
+            self.ax.plot(preds.index, preds[self.column], label="Function Draw")
+
+    def plot_uncertainties(self, multiple):
+        bars_low = (
+            pd.concat([self.data, self.mean - multiple * self.var]).sort_index()
+            if self.join
+            else self.mean - multiple * self.var
+        )
+
+        bars_high = (
+            pd.concat([self.data, self.mean + multiple * self.var]).sort_index()
+            if self.join
+            else self.mean + multiple * self.var
+        )
+
+        self.ax.fill_between(
+            bars_low.index,
+            bars_low[self.column],
+            bars_high[self.column],
+            label=f"{multiple} $\sigma$",
+            alpha=0.5,
+        )
+
+    def plot_scatter(self):
+        self.ax.scatter(
+            self.true_data.index,
+            self.true_data[self.column],
+            label="True Normalised Tide Height",
+            marker="+",
+        )
+        # plot the observed sensor data
+        self.ax.scatter(
+            self.data.index,
+            self.data[self.column],
+            label="Observed Normalised Tide Height",
+            marker="+",
+        )
+
+    def plot(self, num_draws=1, plot_scatter=True):
+        """
+        Plot the gp, sensor data, true data and a function draw.
+        """
+        self.plot_uncertainties(2)
+        self.plot_uncertainties(1)
+
+        if plot_scatter:
+            self.plot_scatter()
+
+        self.plot_predictions(num_draws=num_draws)
+        plt.xlabel("Time")
+        plt.ylabel("Normalised Tide Height")
+        self.ax.legend(loc="upper left")
+
+    def savefig(self, fig_name="plot"):
+        plt.savefig(f"figures/{fig_name}.pdf")
 
 
 def plot_scatter(ax, data, true_data, column, savefig=False, fig_name="scatter"):
@@ -42,52 +116,6 @@ def plot_scatter(ax, data, true_data, column, savefig=False, fig_name="scatter")
     ax.scatter(data.index, data[column], label=f"Sensor {column}", marker="+")
     plt.xlabel("Time")
     plt.ylabel(f"{column}")
-    ax.legend(loc="best")
-    if savefig:
-        plt.savefig(f"figures/{fig_name}.pdf")
-
-
-def plot_lines(ax, splits):
-    for i, split in enumerate(splits):
-        # This stops the legend filling up with multiple entries for these lines and is
-        # super ugly -- much better way is to use a legend artist but life is too short
-        if i != 0:
-            ax.axvline(split, color="purple", linestyle="--")
-        else:
-            ax.axvline(split, color="purple", linestyle="--", label="Data Splits")
-
-
-def plot(
-    ax,
-    data,
-    true_data,
-    mean,
-    var,
-    predictions,
-    column,
-    num_draws=1,
-    savefig=False,
-    fig_name="plot",
-):
-    """
-    Plot the gp, sensor data, true data and a function draw.
-    """
-    plot_uncertainties(ax, mean, var, 2, data, column)
-    plot_uncertainties(ax, mean, var, 1, data, column)
-    # plot the true data
-    ax.scatter(
-        true_data.index,
-        true_data[column],
-        label="True Normalised Tide Height",
-        marker="+",
-    )
-    # plot the observed sensor data
-    ax.scatter(
-        data.index, data[column], label="Observed Normalised Tide Height", marker="+"
-    )
-    plot_predictions(ax, predictions, data, column, num_draws=num_draws)
-    plt.xlabel("Time")
-    plt.ylabel("Normalised Tide Height")
     ax.legend(loc="best")
     if savefig:
         plt.savefig(f"figures/{fig_name}.pdf")

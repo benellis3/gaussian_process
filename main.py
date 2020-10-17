@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
 
+import gif
 import matplotlib.pyplot as plt
 
-from load_data import TIDE_HEIGHT, process_data
-from plot import plot, plot_lines, plot_scatter
+from load_data import TIDE_HEIGHT, chunk, process_data
+from plot import GPPlot, plot_scatter
 from predict import sequential_predictions, train
 
 
@@ -29,37 +30,51 @@ def train_command(args):
     # filter the true tide_height to only be
     # at the non_nan points
     true_data_filtered = true_data.loc[tide_height_nans.values]
-    fig, ax = plt.subplots()
-    plot(
-        ax,
+    plot = GPPlot(
         data,
         true_data_filtered,
         mean,
         var,
         [predictions],
         TIDE_HEIGHT,
-        savefig=args.save_figures,
-        fig_name=args.fig_name,
     )
+    plot.init_plot()
+    plot.plot()
+    if args.save_figures:
+        plot.savefig()
 
 
 def sequential_prediction_command(args):
     data, to_predict, true_data, tide_height_nans = process_data(normalise_data=True)
-    predictions, mean, var, times = sequential_predictions(to_predict, data)
-    true_data_filtered = true_data[tide_height_nans.values]
-    fig, ax = plt.subplots()
-    plot_lines(ax, times)
-    plot(
-        ax,
-        data,
-        true_data_filtered,
-        mean,
-        var,
-        [predictions],
-        TIDE_HEIGHT,
-        savefig=args.save_figures,
-        fig_name=args.fig_name,
-    )
+    max_time = data.index.max()
+    means = []
+    variances = []
+    predictions = []
+    data_chunks = []
+    for data_chunk in chunk(data):
+        prediction, mean, var = sequential_predictions(data_chunk, max_time=max_time)
+        means.append(mean)
+        variances.append(var)
+        predictions.append(prediction)
+        data_chunks.append(data_chunk)
+
+    @gif.frame
+    def animate(i):
+        plot = GPPlot(
+            data_chunks[i],
+            true_data,
+            means[i],
+            variances[i],
+            [predictions[i]],
+            TIDE_HEIGHT,
+            join=False,
+        )
+        plot.init_plot()
+        plot.plot()
+
+    frames = [animate(i) for i in range(len(means))]
+
+    gif.save(frames, "test.gif", duration=60, unit="s", between="startend")
 
 
 def main(args):
