@@ -13,6 +13,8 @@ TIDE_HEIGHT = "Tide height (m)"
 AIR_TEMP = "Air temperature (C)"
 TRUE_TIDE_HEIGHT = "True tide height (m)"
 
+SLICES = 10
+
 
 def load_data(path):
     data = pd.read_csv(path)
@@ -45,6 +47,19 @@ def split(data):
         data[[READ_TIME, TRUE_TIDE_HEIGHT]],
         tide_height_nans,
     )
+
+
+def chunk(data, slices=SLICES):
+    """Slices the data into slices chunks of increasing size"""
+    min_time = data.index.min()
+    max_time = data.index.max()
+
+    time_range = max_time - min_time
+
+    step_size = time_range / SLICES
+
+    for time in np.arange(min_time, max_time, step_size):
+        yield data.loc[min_time : time + step_size]
 
 
 def process_data(normalise_data=True):

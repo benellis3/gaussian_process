@@ -13,6 +13,8 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 SLICES = 10
 
+BOUNDS = [(0.01, None), (0.01, None), (4, None), (0.01, None), (8, None), (0.001, None)]
+
 
 def make_gp():
     gp = GaussianProcess(
@@ -42,47 +44,31 @@ def fit(x, gp, fit_fun):
     return fit_fun(gp, params)
 
 
-def sequential_predictions(tide_height_to_predict, tide_height_data):
-    # split the data into SLICES chunks
-    # set the hyperparams to something fairly decent to start with
-    min_time = tide_height_data.index.min()
-    time_range = tide_height_data.index.max() - min_time
-    step_size = time_range / SLICES
-    mean = []
-    var = []
-    predictions = []
-    times = []
-    guess = None
-    for time in np.arange(
-        min_time + step_size, tide_height_data.index.max() + step_size, step_size
-    ):
-        # get the data that is before this time
-        seq_data = tide_height_data.loc[min_time:time]
-        seq_to_predict = np.linspace(time, time + step_size, 150)
-        seq_to_predict = pd.DataFrame(seq_to_predict, columns=[READ_TIME])
-        seq_predictions, seq_mean, seq_var, new_guess = train(
-            seq_to_predict, seq_data, initial_guess=guess
-        )
-        guess = new_guess
-        seq_predictions = seq_predictions.set_index(seq_to_predict[READ_TIME].values)
-        seq_mean = seq_mean.set_index(seq_to_predict[READ_TIME].values)
-        seq_var = seq_var.set_index(seq_to_predict[READ_TIME].values)
-        mean.append(seq_mean)
-        var.append(seq_var)
-        predictions.append(seq_predictions)
-        times.append(time)
-    predictions = pd.concat(predictions).sort_index()
-    mean = pd.concat(mean).sort_index()
-    var = pd.concat(var).sort_index()
-    times.append(times[-1] + step_size)
-    return (predictions, mean, var, times)
+def sequential_predictions(tide_height_data, max_time=2.5):
+    bounds = [
+        (0.2, 1.0),
+        (0.6, 1.0),
+        (1, 10),
+        (0.01, 0.1),
+        (1, 10),
+        (0.001, 0.01),
+    ]
+    guess = [
+        np.random.uniform(bound[0], bound[1] if bound[1] else bound[0] * 10)
+        for bound in bounds
+    ]
+    seq_to_predict = np.linspace(tide_height_data.index.min(), max_time, 500)
+    seq_to_predict = pd.DataFrame(seq_to_predict, columns=[READ_TIME])
+    seq_predictions, seq_mean, seq_var, _ = train(
+        seq_to_predict, tide_height_data, initial_guess=guess
+    )
+    seq_predictions = seq_predictions.set_index(seq_to_predict[READ_TIME].values)
+    seq_mean = seq_mean.set_index(seq_to_predict[READ_TIME].values)
+    seq_var = seq_var.set_index(seq_to_predict[READ_TIME].values)
+    return (seq_predictions, seq_mean, seq_var)
 
 
-def train(
-    tide_height_to_predict,
-    tide_height_data,
-    initial_guess=None,
-):
+def train(tide_height_to_predict, tide_height_data, initial_guess=None, bounds=None):
     gp = make_gp()
     fit_gp_function = partial(
         fit_gp,
@@ -91,21 +77,22 @@ def train(
         x=READ_TIME,
         y=TIDE_HEIGHT,
     )
-
+    bounds = bounds if bounds is not None else BOUNDS
     optimize_fun = partial(fit, gp=gp, fit_fun=fit_gp_function)
-    bounds = [
-        (0.01, None),
-        (0.01, None),
-        (4, None),
-        (0.01, None),
-        (8, None),
-        (0.001, None),
-    ]
     guess = [0.35, 0.69, 4, 0.04, 16, 0.01] if initial_guess is None else initial_guess
-    optim_result = minimize(optimize_fun, guess, method="L-BFGS-B", bounds=bounds)
+    optim_result = minimize(
+        optimize_fun,
+        guess,
+        method="L-BFGS-B",
+        bounds=bounds,
+        options={"ftol": 1e-3, "gtol": 1e-2},
+    )
     if not optim_result.success:
-        LOG.error(f"Optimization Failed: {optim_result.message}")
-        return
+        import pdb
+
+        pdb.set_trace()
+        raise Exception(f"Optimization Failed: {optim_result.message}")
+
     # fit the function with the best params again
     LOG.info(f"Final Optimisation Parameters: {optim_result.x}")
     optimize_fun(optim_result.x)
