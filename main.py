@@ -1,3 +1,4 @@
+import logging
 from argparse import ArgumentParser
 
 import gif
@@ -6,6 +7,9 @@ import matplotlib.pyplot as plt
 from load_data import TIDE_HEIGHT, chunk, process_data
 from plot import GPPlot, plot_scatter
 from predict import sequential_predictions, train
+
+logging.basicConfig(level=logging.INFO)
+LOG = logging.getLogger(__name__)
 
 
 def plot_scatter_command(args):
@@ -19,6 +23,13 @@ def plot_scatter_command(args):
         savefig=args.save_figures,
         fig_name=args.fig_name,
     )
+
+
+def estimate_noise_command(args):
+    data, _, true_data, tide_height_nans = process_data(normalise_data=False)
+    true_data = true_data.loc[~tide_height_nans.values]
+    diff = true_data - data
+    LOG.info(f"Estimate of the noise: {diff.std()}")
 
 
 def train_command(args):
@@ -41,7 +52,7 @@ def train_command(args):
     plot.init_plot()
     plot.plot()
     if args.save_figures:
-        plot.savefig()
+        plot.savefig(args.fig_name)
 
 
 def sequential_prediction_command(args):
@@ -74,7 +85,7 @@ def sequential_prediction_command(args):
 
     frames = [animate(i) for i in range(len(means))]
 
-    gif.save(frames, "test.gif", duration=60, unit="s", between="startend")
+    gif.save(frames, f"{args.fig_name}.gif", duration=60, unit="s", between="startend")
 
 
 def main(args):
@@ -104,6 +115,11 @@ def main(args):
         help="Generates predictions for a GP on a sequential basis",
     )
     parser_seq.set_defaults(func=sequential_prediction_command)
+
+    parser_noise = subparsers.add_parser(
+        "estimate_noise", help="Estimate the noise in the data"
+    )
+    parser_noise.set_defaults(func=estimate_noise_command)
 
     parsed_args = parser.parse_args(args)
     parsed_args.func(parsed_args)

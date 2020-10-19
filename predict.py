@@ -9,7 +9,6 @@ from gp import GaussianProcess
 from kernels import periodic, rbf
 from load_data import READ_TIME, TIDE_HEIGHT
 
-logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 SLICES = 10
 
@@ -57,10 +56,11 @@ def sequential_predictions(tide_height_data, max_time=2.5):
         np.random.uniform(bound[0], bound[1] if bound[1] else bound[0] * 10)
         for bound in bounds
     ]
+    LOG.info(f"Initial Guess: {guess}")
     seq_to_predict = np.linspace(tide_height_data.index.min(), max_time, 500)
     seq_to_predict = pd.DataFrame(seq_to_predict, columns=[READ_TIME])
     seq_predictions, seq_mean, seq_var, _ = train(
-        seq_to_predict, tide_height_data, initial_guess=guess
+        seq_to_predict, tide_height_data, initial_guess=guess, bounds=bounds
     )
     seq_predictions = seq_predictions.set_index(seq_to_predict[READ_TIME].values)
     seq_mean = seq_mean.set_index(seq_to_predict[READ_TIME].values)
